@@ -63,9 +63,7 @@ class Kalman_3D():
         return new_state, new_covariance
 
     def prediction(self, tracked_points, time_difference):
-        print(self.F)
         self.update_matrix(time_difference)
-        print(self.F)
         self.result = []
         self.observation.append(tracked_points)
         new_state = self.initial_state
