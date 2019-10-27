@@ -9,8 +9,8 @@ pipeline = rs.pipeline()
 #Create a config and configure the pipeline to stream
 #  different resolutions of color and depth streams
 config = rs.config()
-config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 60)
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 60)
 
 # Start streaming
 profile = pipeline.start(config)
@@ -59,7 +59,7 @@ try:
         mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
         display = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
 
-        cv2.imshow('frame2',display)
+        cv2.imshow('frame2',frame2)
         k = cv2.waitKey(30) & 0xff
         if k == 27:
             break
