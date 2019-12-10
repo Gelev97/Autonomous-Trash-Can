@@ -1,5 +1,4 @@
 import sys
-sys.path.append("../")
 from vision.realsense import *
 from kalman.Kalman_3D import *
 from vision.camshift import *
@@ -7,18 +6,23 @@ import numpy as np
 import time
 import cv2
 
+def close(a, b):
+    return abs(a[0] - b[0]) < 0.2 and abs(a[1]-b[1]) < 0.2 and abs(a[2]-b[2]) < 0.2
+
 class trash_tracking():
     def __init__(self):
         self.camera = realsense()
         self.fgbg = cv2.bgsegm.createBackgroundSubtractorGMG()
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-        self.camshift = camshift()
-        self.tracker = cv2.TrackerCSRT_create()
+        self.prediction_list = None
 
         self.bounding_box = None
         self.start_track = False
         self.track_phase = False
         self.start = time.time()
+        self.kalman = Kalman_3D()
+        self.fail_counter = 0
+        self.success_counter = 0
 
     def remove_background(self, color_image):
         cv_grey = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
@@ -65,19 +69,22 @@ class trash_tracking():
             else:
                 self.start_track = False
             self.track_phase = True
+        else:
+            self.bounding_box = None
 
     
     def loop(self):
-        time_diff = time.time()-self.start
-        self.start = time.time()
-    	
         color_frame, depth_frame = self.camera.get_rs_frames()
         color_image = np.asanyarray(color_frame.get_data())
 
         fgmask = self.remove_background(color_image)
         color_mask = cv2.bitwise_and(color_image, color_image, mask = fgmask)
+
         self.get_components(fgmask)
+        
         if self.bounding_box is not None:
+            time_diff = time.time()-self.start
+            self.start = time.time()
             (x, y, w, h) = [int(v) for v in self.bounding_box]
             cv2.rectangle(color_mask, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # # print(self.bounding_box)
@@ -94,23 +101,32 @@ class trash_tracking():
         #             (0, 255, 0), 2)
         #         print("Yeah")
 
+            center_pixel = [int(x + w/2), int(y + h/2)]
+            pixel_3d = self.camera.cord_3d(center_pixel)
+            if self.prediction_list is not None:
+                if not close(pixel_3d, self.prediction_list[0]):
+                    self.fail_counter += 1
+                    self.success_counter = 0
+                    if self.fail_counter >= 3:
+                        self.kalman.reset_state()
+                        print("reset")
+                else:
+                    self.fail_counter = 0
+                    self.success_counter += 1
+                if self.success_counter >= 7:
+                    print("yeah")
+            self.prediction_list = self.kalman.prediction(pixel_3d, time_diff)
+            for coordinate_predicted in self.prediction_list:
+                if not ((coordinate_predicted[0] == 0 and coordinate_predicted[1] == 0) or coordinate_predicted[2] == 0):
+                    pixel_2d = self.camera.point_projection([coordinate_predicted[0], coordinate_predicted[1], coordinate_predicted[2]])
+                    # print([coordinate_predicted[0], coordinate_predicted[1], coordinate_predicted[2]])
+                    cv2.circle(color_mask, (int(pixel_2d[0]), int(pixel_2d[1])), 10, (0,0,255), 2)
+                
+            # for coordinate_tracked in self.kalman.observation:
+            #     if not (coordinate_tracked[0] == 0 and coordinate_tracked[1] == 0 and coordinate_tracked[2] == 0):
+            #         pixel_2d = self.camera.point_projection([coordinate_tracked[0], coordinate_tracked[1], coordinate_tracked[2]])
+            #         cv2.circle(color_mask, (int(pixel_2d[0]), int(pixel_2d[1])), 10, (0,255,0), 2)
         
-        # center_pixel = [int(x + w/2), int(y + h/2)]
-        # pixel_3d = cord_3d(aligned_depth_frame, center_pixel)
-        # print(pixel_3d)
-        # prediction = kalman_obj.prediction(pixel_3d, time_diff)
-        # depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-        # for coordinate_predicted in prediction:
-        #     if not (coordinate_predicted[0] == 0 and coordinate_predicted[1] == 0 and coordinate_predicted[2] == 0):
-        #         pixel_2d = rs.rs2_project_point_to_pixel(depth_intrin, [coordinate_predicted[0], coordinate_predicted[1], coordinate_predicted[2]])
-        #         cv2.circle(color_image, (int(pixel_2d[0]), int(pixel_2d[1])), 10, (0,0,255), 2)
-            
-        # for coordinate_tracked in kalman_obj.observation:
-        #     if not (coordinate_tracked[0] == 0 and coordinate_tracked[1] == 0 and coordinate_tracked[2] == 0):
-        #         pixel_2d = rs.rs2_project_point_to_pixel(depth_intrin, [coordinate_tracked[0], coordinate_tracked[1], coordinate_tracked[2]])
-        #         cv2.circle(color_image, (int(pixel_2d[0]), int(pixel_2d[1])), 10, (0,255,0), 2)
-
-
         cv2.namedWindow('Color Image', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Color Image', color_mask)
         cv2.namedWindow('GMG', cv2.WINDOW_AUTOSIZE)

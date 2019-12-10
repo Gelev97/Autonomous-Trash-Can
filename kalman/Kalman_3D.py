@@ -1,11 +1,10 @@
 import numpy as np
 import numpy.linalg as la
-import cv2
 import csv
 
 class Kalman_3D():
     def __init__(self):
-        self.acceleration = np.array([0, 0, 9.8])
+        self.acceleration = np.array([0, 0, -9.8])
         self.dt = 0
         self.F = np.array([1, 0, 0, self.dt, 0, 0,
               0, 1, 0, 0, self.dt, 0,
@@ -19,16 +18,17 @@ class Kalman_3D():
               self.dt, 0, 0,
               0, self.dt, 0,
               0, 0, self.dt]).reshape(6,3) # acceleration model
-        self.H = np.array([1,0,0,0,0,0
+        self.H = np.array([1,0,0,0,0,0,
               0,1,0,0,0,0,
               0,0,1,0,0,0]).reshape(3,6) # position only, no velocity involved
-        self.initial_state = np.array([0,0,0.1,0,0,0]) # x, y, z, vx, vy, vz
-        self.initial_covariance = np.diag([1000,1000,1000,1000,1000,1000])**2
+        self.initial_state = np.array([0,0,0,0,0,0]) # x, y, z, vx, vy, vz
+        self.initial_covariance = np.diag([500, 500, 500, 500, 500, 500])**2
         self.Q = 0.0001**2 * np.eye(6) # dynamic system model noise
-        self.noise = 3
+        self.noise = 0.1
         self.R = 3*self.noise**2 * np.eye(3) # observation model noise
         self.result = []
         self.observation = []
+        self.max_iteration = 1000
 
     def update_matrix(self, time_difference):
         self.dt = time_difference
@@ -68,21 +68,28 @@ class Kalman_3D():
         self.observation.append(tracked_points)
         new_state = self.initial_state
         new_covariance = self.initial_covariance
-        flag = False
+        counter = 0
         iteration_count = 0
 
-        while(new_state[2] > 0.0 and iteration_count < self.max_iteration):
-            if(flag == False):
-                new_state, new_covariance = self.kalman_filter(new_state, new_covariance, tracked_points) 
-                flag = True
-                self.initial_state = new_state
-                self.initial_covariance = new_covariance
+        once = True
+        while once or (new_state[2] >= 0.4 and iteration_count < self.max_iteration):
+            once = False
+            if(counter < len(self.observation)):
+              new_state, new_covariance = self.kalman_filter(new_state, new_covariance, self.observation[counter]) 
+              counter += 1
+              if(counter == len(self.observation)):
+                # Add the current tracke points' next state
+                self.result.append(new_state)
             else:
-                new_state, new_covariance = self.kalman_filter(new_state, new_covariance, None)
-            self.result.append(new_state)
+              new_state, new_covariance = self.kalman_filter(new_state, new_covariance, None)
+              self.result.append(new_state)
             iteration_count += 1
         return self.result #x, y, z, vx, vy, vz 
 
-    def reset_observation(self):
+    def reset_state(self):
+        self.initial_state = np.array([0,0,0,0,0,0]) # x, y, z, vx, vy, vz
+        self.initial_covariance = np.diag([1000,1000,1000,1000,1000,1000])**2
+        self.result = []
         self.observation = []
+
 
