@@ -1,4 +1,5 @@
 Autonomous Trash Can (ECE Capstone Project)
+
 Project Period : 2019.09 - 2019.12
 
 We developed a smart trash can that would approach and catch the trash within a certain area.
