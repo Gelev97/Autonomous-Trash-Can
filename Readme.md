@@ -4,6 +4,6 @@ Project Period : 2019.09 - 2019.12
 
 We developed a smart trash can that would approach and catch the trash within a certain area.
 
-Demo video : https://www.youtube.com/watch?v=WUdpv1XdJwM&ab_channel=GeRuohai
+Demo video : [https://www.youtube.com/watch?v=WUdpv1XdJwM&ab_channel=GeRuohai](https://www.youtube.com/watch?v=WUdpv1XdJwM&ab_channel=GeRuohai)
 
-Paper : https://github.com/Gelev97/18500-B4/blob/master/TeamB4.pdf 
+Report : [https://github.com/Gelev97/18500-B4/blob/master/TeamB4.pdf](https://github.com/Gelev97/Autonomous-Trash-Can/blob/master/TeamB4.pdf)
